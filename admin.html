@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VRChat Archive - Admin Panel</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #08090d;
+      --card-bg: #12151c;
+      --text-main: #e2e8f0;
+      --text-sub: #8892b0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .control-bar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(18, 21, 28, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 16px 24px;
+      border-radius: 12px;
+      border: 1px solid rgba(74, 96, 122, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .title-area h1 { font-size: 1.1rem; margin: 0; color: #fff; }
+    .title-area p { font-size: 0.8rem; color: var(--text-sub); margin: 4px 0 0 0; }
+
+    .btn-group { display: flex; gap: 10px; }
+    button {
+      background: #252a37; color: #fff; border: 1px solid rgba(255,255,255,0.15);
+      padding: 8px 16px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #32384a; }
+    button.btn-primary { background: #3b82f6; border-color: #3b82f6; }
+    button.btn-primary:hover { background: #2563eb; }
+
+    .groups-container {
+      display: flex; flex-direction: column; gap: 30px; max-width: 1400px; margin: 0 auto;
+    }
+
+    .group-block {
+      background: var(--card-bg); border-radius: 10px; padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .group-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .group-info { display: flex; align-items: center; gap: 12px; }
+    .group-name { font-weight: bold; color: #fff; font-size: 1rem; }
+    .item-count { font-size: 0.75rem; color: var(--text-sub); background: rgba(255,255,255,0.05); padding: 2px 8px; border-radius: 10px; }
+
+    .drop-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px;
+      min-height: 120px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px;
+      border: 1px dashed rgba(255,255,255,0.1);
+    }
+
+    .admin-card {
+      background: #181d28; border-radius: 8px; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .card-img-wrap {
+      position: relative; aspect-ratio: 16/9; background: #000; cursor: grab;
+    }
+    .admin-card.tall .card-img-wrap { aspect-ratio: 9/16; }
+
+    .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+    .card-img-wrap:active { cursor: grabbing; }
+
+    .card-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .card-filename { font-size: 0.65rem; color: var(--text-sub); word-break: break-all; opacity: 0.8; }
+    
+    .card-memo-input {
+      width: 100%; background: #0d0e12; color: #fff; border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px; padding: 8px; font-size: 0.8rem; box-sizing: border-box;
+    }
+    .card-memo-input:focus { border-color: #3b82f6; outline: none; }
+
+    .card-actions { display: flex; justify-content: flex-end; margin-top: 2px; }
+    
+    /* 改善された削除ボタン */
+    .btn-del {
+      font-size: 0.75rem;
+      padding: 5px 12px;
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .btn-del:hover {
+      background: rgba(239, 68, 68, 0.35);
+      color: #fff;
+    }
+
+    .add-item-box {
+      margin-top: 14px; display: flex; gap: 8px;
+    }
+    .add-item-input {
+      flex: 1; background: #0d0e12; color: #fff; border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px; padding: 8px 12px; font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="control-bar">
+    <div class="title-area">
+      <h1>VRChat Archive - Admin Panel</h1>
+      <p>ドラッグで移動、メモの編集・画像の追加/削除が行えます</p>
+    </div>
+    <div class="btn-group">
+      <button onclick="downloadPhotosJs()" class="btn-primary">💾 photos.js をダウンロード上書き</button>
+    </div>
+  </div>
+
+  <div class="groups-container" id="groups-container"></div>
+
+  <script src="photos.js"></script>
+  <script>
+    const container = document.getElementById('groups-container');
+
+    function renderEditor() {
+      container.innerHTML = '';
+
+      photoGroups.forEach((group, groupIdx) => {
+        const groupBlock = document.createElement('div');
+        groupBlock.className = 'group-block';
+
+        groupBlock.innerHTML = `
+          <div class="group-header">
+            <div class="group-info">
+              <span class="group-name">${group.name}</span>
+              <span class="item-count">${group.items.length} 枚</span>
+            </div>
+          </div>
+          <div class="drop-grid" id="group-grid-${groupIdx}" data-group-idx="${groupIdx}"></div>
+          <div class="add-item-box">
+            <input type="text" class="add-item-input" id="input-${groupIdx}" placeholder="追加するファイル名 (例: VRChat_...png)">
+            <button onclick="addItem(${groupIdx})">＋ 画像を追加</button>
+          </div>
+        `;
+
+        container.appendChild(groupBlock);
+        const gridEl = groupBlock.querySelector('.drop-grid');
+
+        group.items.forEach((photoObj, itemIdx) => {
+          const filename = typeof photoObj === 'string' ? photoObj : photoObj.filename;
+          const memo = typeof photoObj === 'object' && photoObj.memo ? photoObj.memo : '';
+
+          const card = document.createElement('div');
+          card.className = 'admin-card';
+          if (filename.includes('1080x1920')) card.classList.add('tall');
+          card.dataset.filename = filename;
+
+          card.innerHTML = `
+            <div class="card-img-wrap">
+              <img src="images/${filename}" alt="${filename}" loading="lazy">
+            </div>
+            <div class="card-body">
+              <span class="card-filename">${filename}</span>
+              <input type="text" class="card-memo-input" value="${memo}" placeholder="ひとことメモを入力..." oninput="updateMemo(${groupIdx}, ${itemIdx}, this.value)">
+              <div class="card-actions">
+                <button class="btn-del" onclick="removeItem(${groupIdx}, ${itemIdx})">🗑️ この画像を削除</button>
+              </div>
+            </div>
+          `;
+          gridEl.appendChild(card);
+        });
+
+        new Sortable(gridEl, {
+          group: 'photos',
+          animation: 150,
+          onEnd: syncDataFromUI
+        });
+      });
+    }
+
+    function syncDataFromUI() {
+      const groupGrids = document.querySelectorAll('.drop-grid');
+      groupGrids.forEach((grid) => {
+        const groupIdx = parseInt(grid.dataset.groupIdx, 10);
+        const newItems = [];
+        grid.querySelectorAll('.admin-card').forEach((card) => {
+          const filename = card.dataset.filename;
+          const memoInput = card.querySelector('.card-memo-input');
+          const memo = memoInput ? memoInput.value.trim() : '';
+
+          if (memo !== '') {
+            newItems.push({ filename, memo });
+          } else {
+            newItems.push(filename);
+          }
+        });
+        photoGroups[groupIdx].items = newItems;
+      });
+    }
+
+    function updateMemo(groupIdx, itemIdx, value) {
+      const item = photoGroups[groupIdx].items[itemIdx];
+      const filename = typeof item === 'string' ? item : item.filename;
+      
+      if (value.trim() !== '') {
+        photoGroups[groupIdx].items[itemIdx] = { filename, memo: value.trim() };
+      } else {
+        photoGroups[groupIdx].items[itemIdx] = filename;
+      }
+    }
+
+    function addItem(groupIdx) {
+      syncDataFromUI();
+      const input = document.getElementById(`input-${groupIdx}`);
+      const filename = input.value.trim();
+      if (!filename) return;
+
+      photoGroups[groupIdx].items.push(filename);
+      input.value = '';
+      renderEditor();
+    }
+
+    function removeItem(groupIdx, itemIdx) {
+      syncDataFromUI();
+      photoGroups[groupIdx].items.splice(itemIdx, 1);
+      renderEditor();
+    }
+
+    function generateJsContent() {
+      syncDataFromUI();
+      return `// photos.js - VRChat ギャラリーデータ (自動生成)\nconst photoGroups = ${JSON.stringify(photoGroups, null, 2)};\n`;
+    }
+
+    function downloadPhotosJs() {
+      const text = generateJsContent();
+      const blob = new Blob([text], { type: 'text/javascript' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'photos.js';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      alert('photos.js をダウンロードしました！プロジェクトフォルダに上書き保存してください。');
+    }
+
+    renderEditor();
+  </script>
+</body>
+</html>

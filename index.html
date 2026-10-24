@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>改変の記録 - Binah Archive</title>
+  <style>
+    :root {
+      /* 背景色の黒みを抑え、深みのある落ち着いたダークトーンに調整 */
+      --bg-color: #0f1219;
+      --card-bg: #181d28;
+      --text-main: #e2e8f0;
+      --text-sub: #8892b0;
+      --accent-blue: #7998b8;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 50px 20px 80px 20px;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    /* --- ミニマルなヘッダー --- */
+    header {
+      text-align: center;
+      margin-bottom: 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-main-title {
+      font-size: 1.5rem;
+      letter-spacing: 2.5px;
+      margin: 0;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+
+    .header-info {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 4px;
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      font-weight: 300;
+      letter-spacing: 0.05em;
+    }
+
+    .header-info span.divider {
+      color: rgba(255, 255, 255, 0.15);
+    }
+
+    .header-info span.value {
+      color: #cbd5e1;
+    }
+
+    /* --- ギャラリーレイアウト --- */
+    .archive-wrapper {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 70px;
+    }
+
+    .gallery-section {
+      width: 100%;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 18px;
+      grid-auto-rows: 190px;
+      grid-auto-flow: dense;
+    }
+
+    @media (min-width: 768px) {
+      .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 22px;
+        grid-auto-rows: 220px;
+      }
+    }
+
+    /* スケルトンスクリーン */
+    @keyframes skeleton-shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* --- 写真ごとの枠線（ボーダー）を強く強調したスタイル --- */
+    .gallery-item {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      background: linear-gradient(90deg, #181d28 25%, #222938 50%, #181d28 75%);
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 2.5s infinite ease-in-out;
+      
+      border: 2px solid var(--group-border, rgba(121, 152, 184, 0.4));
+      
+      transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), 
+                  opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1),
+                  border-color 0.3s ease, 
+                  box-shadow 0.3s ease;
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(30px);
+    }
+
+    .gallery-item.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .gallery-item.tall { grid-row: span 2; }
+    .gallery-item.wide { grid-column: span 2; }
+    .gallery-item.big { grid-column: span 2; grid-row: span 2; }
+
+    @media (max-width: 600px) {
+      .gallery-item.wide, .gallery-item.big {
+        grid-column: span 1;
+        grid-row: span 1;
+      }
+    }
+
+    .gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
+      opacity: 0;
+    }
+
+    .gallery-item img.loaded {
+      opacity: 1;
+    }
+
+    .gallery-item:hover {
+      transform: translateY(-5px) !important;
+      border-width: 3px;
+      border-color: var(--group-hover, #7998b8) !important;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6), 0 0 20px var(--group-shadow, rgba(121, 152, 184, 0.5));
+      z-index: 10;
+    }
+
+    .gallery-item:hover img {
+      transform: scale(1.04);
+    }
+
+    /* --- ライトボックス --- */
+    #lightbox {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 18, 25, 0.95);
+      backdrop-filter: blur(8px);
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    .lightbox-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 90%;
+      max-height: 85vh;
+    }
+
+    #lightbox img {
+      max-width: 100%;
+      max-height: 72vh;
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      object-fit: contain;
+      transition: opacity 0.4s ease;
+    }
+
+    #lightbox-memo {
+      margin-top: 18px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      font-weight: 300;
+      letter-spacing: 0.12em;
+      line-height: 1.6;
+      background: none;
+      border: none;
+      padding: 0 10px;
+      display: none;
+      text-align: center;
+      max-width: 650px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      opacity: 0.9;
+    }
+
+    .nav-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(24, 29, 40, 0.7);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 1010;
+      backdrop-filter: blur(4px);
+    }
+
+    .nav-btn:hover {
+      background: rgba(74, 96, 122, 0.8);
+      color: #fff;
+    }
+
+    .nav-prev { left: 20px; }
+    .nav-next { right: 20px; }
+
+    @media (max-width: 600px) {
+      .nav-btn { width: 36px; height: 36px; font-size: 1.2rem; }
+      .nav-prev { left: 8px; }
+      .nav-next { right: 8px; }
+      
+      .header-info {
+        flex-direction: column;
+        gap: 4px;
+      }
+      .header-info span.divider { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-main-title">改変の記録</div>
+    <div class="header-info">
+      <div>VRChat ID : <span class="value">fuyugasuki</span></div>
+      <span class="divider">|</span>
+      <div>アバター : <span class="value">Binah（ビナア）</span></div>
+    </div>
+  </header>
+
+  <div class="archive-wrapper" id="archive-wrapper"></div>
+
+  <!-- 拡大表示用ライトボックス -->
+  <div id="lightbox" onclick="closeLightbox()">
+    <div class="nav-btn nav-prev" onclick="event.stopPropagation(); navigateLightbox(-1);">‹</div>
+    <div class="nav-btn nav-next" onclick="event.stopPropagation(); navigateLightbox(1);">›</div>
+    
+    <div class="lightbox-container" onclick="event.stopPropagation()">
+      <img id="lightbox-img" src="" alt="Zoomed Image">
+      <div id="lightbox-memo"></div>
+    </div>
+  </div>
+
+  <script src="photos.js"></script>
+  <script>
+    const wrapper = document.getElementById('archive-wrapper');
+    const flatPhotosList = [];
+    let currentIndex = -1;
+
+    photoGroups.forEach((group) => {
+      const section = document.createElement('div');
+      section.className = 'gallery-section';
+
+      const grid = document.createElement('div');
+      grid.className = 'gallery-grid';
+
+      group.items.forEach((photoObj, index) => {
+        const filename = typeof photoObj === 'string' ? photoObj : photoObj.filename;
+        const memo = typeof photoObj === 'object' && photoObj.memo ? photoObj.memo : '';
+
+        const listIndex = flatPhotosList.length;
+        flatPhotosList.push({ filename, memo });
+
+        const item = document.createElement('div');
+        item.className = 'gallery-item';
+        
+        item.style.setProperty('--group-border', group.borderColor);
+        item.style.setProperty('--group-hover', group.hoverColor);
+        item.style.setProperty('--group-shadow', group.shadowColor);
+
+        item.onclick = function() { openLightbox(listIndex); };
+
+        if (filename.includes('1080x1920')) {
+          item.classList.add('tall');
+        } else if (index % 11 === 3) {
+          item.classList.add('wide');
+        } else if (index % 19 === 7) {
+          item.classList.add('big');
+        }
+
+        const img = document.createElement('img');
+        img.src = `images/${filename}`;
+        img.alt = filename;
+        img.loading = 'lazy';
+
+        img.onload = () => { img.classList.add('loaded'); };
+
+        item.appendChild(img);
+        grid.appendChild(item);
+      });
+
+      section.appendChild(grid);
+      wrapper.appendChild(section);
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.05 });
+
+    document.querySelectorAll('.gallery-item').forEach(item => {
+      observer.observe(item);
+    });
+
+    function openLightbox(index) {
+      if (index < 0 || index >= flatPhotosList.length) return;
+      currentIndex = index;
+
+      const lightbox = document.getElementById('lightbox');
+      updateLightboxContent();
+      lightbox.style.display = 'flex';
+    }
+
+    function updateLightboxContent() {
+      const data = flatPhotosList[currentIndex];
+      const lightboxImg = document.getElementById('lightbox-img');
+      const lightboxMemo = document.getElementById('lightbox-memo');
+
+      lightboxImg.style.opacity = '0.2';
+      lightboxImg.src = `images/${data.filename}`;
+      lightboxImg.onload = () => { lightboxImg.style.opacity = '1'; };
+
+      if (data.memo && data.memo.trim() !== '') {
+        lightboxMemo.textContent = data.memo;
+        lightboxMemo.style.display = 'block';
+      } else {
+        lightboxMemo.style.display = 'none';
+      }
+    }
+
+    function navigateLightbox(direction) {
+      const newIndex = currentIndex + direction;
+      if (newIndex >= 0 && newIndex < flatPhotosList.length) {
+        currentIndex = newIndex;
+        updateLightboxContent();
+      }
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox').style.display = 'none';
+      currentIndex = -1;
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const lightbox = document.getElementById('lightbox');
+      if (lightbox.style.display !== 'flex') return;
+
+      if (e.key === 'ArrowLeft') {
+        navigateLightbox(-1);
+      } else if (e.key === 'ArrowRight') {
+        navigateLightbox(1);
+      } else if (e.key === 'Escape') {
+        closeLightbox();
+      }
+    });
+
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const lightboxEl = document.getElementById('lightbox');
+
+    lightboxEl.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, false);
+
+    lightboxEl.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, false);
+
+    function handleSwipe() {
+      const swipeDistance = touchEndX - touchStartX;
+      if (Math.abs(swipeDistance) > 40) {
+        if (swipeDistance < 0) {
+          navigateLightbox(1);
+        } else {
+          navigateLightbox(-1);
+        }
+      }
+    }
+  </script>
+
+</body>
+</html>
